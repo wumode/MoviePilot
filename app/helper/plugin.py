@@ -1460,10 +1460,7 @@ class PluginHelper(metaclass=WeakSingleton):
     async def __async_get_plugin_meta(self, pid: str, repo_url: str,
                                       package_version: Optional[str]) -> dict:
         try:
-            plugins = (
-                          await self.async_get_plugins(repo_url) if not package_version
-                          else await self.async_get_plugins(repo_url, package_version)
-                      ) or {}
+            plugins = await self.async_get_plugins(repo_url, package_version, force=True) or {}
             meta = plugins.get(pid)
             return meta if isinstance(meta, dict) else {}
         except Exception as e:

@@ -18,7 +18,7 @@ from starlette import status
 from watchfiles import watch
 
 from app import schemas
-from app.core.cache import cached
+from app.core.cache import cached, async_fresh, fresh
 from app.core.config import settings
 from app.core.event import eventmanager, Event
 from app.db.plugindata_oper import PluginDataOper
@@ -916,13 +916,10 @@ class PluginManager(metaclass=Singleton):
         return list(self._running_plugins.keys())
 
     @cached(maxsize=1, ttl=1800)
-    def get_online_plugins(self, force: bool = False) -> List[schemas.Plugin]:
+    def _get_online_plugins(self, force: bool = False) -> List[schemas.Plugin]:
         """
         获取所有在线插件信息
         """
-        if force:
-            self.get_online_plugins.cache_clear()
-
         if not settings.PLUGIN_MARKET:
             return []
 
@@ -959,6 +956,14 @@ class PluginManager(metaclass=Singleton):
                         base_version_plugins.extend(plugins)  # 收集 v1 版本插件
 
         return self._process_plugins_list(higher_version_plugins, base_version_plugins)
+
+    def get_online_plugins(self, force: bool = False) -> List[schemas.Plugin]:
+        """
+        获取所有在线插件信息
+        :param force: 是否强制刷新（忽略缓存）
+        """
+        with fresh(refresh=force):
+            return self._get_online_plugins(force=force)
 
     def get_local_plugins(self) -> List[schemas.Plugin]:
         """
@@ -1219,14 +1224,11 @@ class PluginManager(metaclass=Singleton):
         return plugin
 
     @cached(maxsize=1, ttl=1800)
-    async def async_get_online_plugins(self, force: bool = False) -> List[schemas.Plugin]:
+    async def _async_get_online_plugins(self, force: bool = False) -> List[schemas.Plugin]:
         """
         异步获取所有在线插件信息
         :param force: 是否强制刷新（忽略缓存）
         """
-        if force:
-            await self.async_get_online_plugins.cache_clear()
-
         if not settings.PLUGIN_MARKET:
             return []
 
@@ -1275,6 +1277,14 @@ class PluginManager(metaclass=Singleton):
                         base_version_plugins.extend(plugins)  # 收集 v1 版本插件
 
         return self._process_plugins_list(higher_version_plugins, base_version_plugins)
+
+    async def async_get_online_plugins(self, force: bool = False) -> List[schemas.Plugin]:
+        """
+        异步获取所有在线插件信息
+        :param force: 是否强制刷新（忽略缓存）
+        """
+        async with async_fresh(refresh=force):
+            return await self._async_get_online_plugins(force=force)
 
     async def async_get_plugins_from_market(self, market: str,
                                             package_version: Optional[str] = None,
